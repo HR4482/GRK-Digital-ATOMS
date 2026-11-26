@@ -14,8 +14,20 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager 'platforms;android-35' 'build-tools;34.0.0'
+      - name: Verify runner Android SDK and install required packages only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$(command -v sdkmanager || true)"
+          if [[ -z "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+          fi
+          test -x "$sdkmanager"
+          "$sdkmanager" --version
+          if [[ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" || ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || ! -x "$ANDROID_HOME/build-tools/34.0.0/aapt2" ]]; then
+            "$sdkmanager" 'platforms;android-35' 'build-tools;34.0.0' 'build-tools;35.0.0'
+          fi
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
