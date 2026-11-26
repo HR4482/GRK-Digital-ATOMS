@@ -24,7 +24,11 @@ public class MainActivity extends Activity {
     private int session = -1;
     private boolean enabled = true, external = false, ready = false, registered = false;
     private int bassValue = 0, spatialValue = 0, preset = 0;
-    private TextView status, track;
+    private TextView status, track, phoneStatus;
+    private final Handler phoneHandler=new Handler(Looper.getMainLooper());
+    private final Runnable phonePoll=new Runnable(){public void run(){if(phoneStatus!=null)phoneStatus.setText(ExternalEffectsService.status);phoneHandler.postDelayed(this,1000);}};
+    private void startPhoneEq(String action,int p){try{startForegroundService(new Intent(this,ExternalEffectsService.class).setAction(action).putExtra("preset",p));}catch(RuntimeException e){phoneStatus.setText("Cannot start: "+e.getMessage());}}
+    @Override protected void onStart(){super.onStart();phoneHandler.post(phonePoll);}
     private LinearLayout root, eqPanel;
     private SeekBar bassBar, spatialBar;
     private Button play;
@@ -50,7 +54,7 @@ public class MainActivity extends Activity {
         });
         TextView brand = label("GRK  /  AUDIO LAB",14); brand.setTextColor(ACCENT); brand.setTypeface(null,Typeface.BOLD);
         TextView heading = label("Spatial Audio",32); heading.setTypeface(null,Typeface.BOLD);
-        button("Open GRK Immersive 5.1.2 DSP player",v->{external=false;stopPlayer();refresh();startActivity(new Intent(this,DspActivity.class));});
+        button("Open GRK Immersive 5.1.2 DSP player",v->{stopService(new Intent(this,ExternalEffectsService.class));external=false;stopPlayer();refresh();startActivity(new Intent(this,DspActivity.class));});
         label("Real playback-session effects • No root",15);
         status = label("Select an audio file to activate processing.",15); status.setTextColor(ACCENT);
         track = label("No track selected",17);
@@ -67,9 +71,16 @@ public class MainActivity extends Activity {
         spatialBar = strength("Surround-style virtualizer (if supported)",v->{spatialValue=v; updateStrength();});
         button("Listen for compatible external players (experimental)",v->{stopPlayer(); external=true; refresh();});
         button("Exit external mode",v->{external=false; if(player==null)releaseEffects(); refresh();});
-        button("Start background compatible-session EQ (experimental)",v->{external=false;stopPlayer();refresh();startForegroundService(new Intent(this,ExternalEffectsService.class));});
-        button("Stop background EQ",v->{stopService(new Intent(this,ExternalEffectsService.class));});
-        label("Background EQ uses a fixed gentle profile on newly announced compatible sessions. Stop it before using local controls.",13);
+        label("Phone-wide sound • experimental / no root",22);
+        phoneStatus=label(ExternalEffectsService.status,15);phoneStatus.setTextColor(ACCENT);
+        Spinner phonePreset=new Spinner(this);phonePreset.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Bass focus","Cinema clarity","Voice clarity"}));phonePreset.setSelection(1);root.addView(phonePreset);
+        button("Enable phone-wide native EQ",v->{external=false;stopPlayer();refresh();
+            new android.app.AlertDialog.Builder(this).setTitle("Experimental global EQ")
+            .setMessage("May affect media and other sounds depending on the device. Start at low volume. Android may refuse access; compatible sessions are the fallback. Custom 5.1.2 remains local only.")
+            .setNegativeButton("Cancel",null).setPositiveButton("Enable",(d,w)->startPhoneEq(ExternalEffectsService.START_GLOBAL,phonePreset.getSelectedItemPosition())).show();});
+        button("Start compatible-session EQ only",v->{external=false;stopPlayer();refresh();startPhoneEq(ExternalEffectsService.START_SESSIONS,phonePreset.getSelectedItemPosition());});
+        button("Stop phone audio EQ",v->{stopService(new Intent(this,ExternalEffectsService.class));});
+        label("Native EQ uses cut-only tonal profiles; no guaranteed surround, app coverage, loudness or system-wide PCM interception. Restart compatible playback after enabling. Stop before using GRK local DSP.",13);
         label("External mode requires a player to announce its audio session. It is not a system-wide effect. No licensed Dolby processing is included. Keep GRK running during use.",13);
         IntentFilter f=new IntentFilter(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION); f.addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
         // External player announcements intentionally originate in other apps.
@@ -115,6 +126,6 @@ public class MainActivity extends Activity {
     private void refresh(){refreshStatus();renderBands();bassBar.setEnabled(strengthSupported(bass));spatialBar.setEnabled(strengthSupported(spatial));play.setEnabled(ready&&player!=null);}
     private void releaseEffects(){if(eq!=null){try{eq.release();}catch(RuntimeException ignored){}eq=null;}if(bass!=null){try{bass.release();}catch(RuntimeException ignored){}bass=null;}if(spatial!=null){try{spatial.release();}catch(RuntimeException ignored){}spatial=null;}session=-1;}
     private void stopPlayer(){ready=false;releaseEffects();if(player!=null){try{player.release();}catch(RuntimeException ignored){}player=null;}}
-    @Override protected void onStop(){super.onStop();if(ready&&player!=null&&player.isPlaying())player.pause();}
+    @Override protected void onStop(){phoneHandler.removeCallbacks(phonePoll);super.onStop();if(ready&&player!=null&&player.isPlaying())player.pause();}
     @Override protected void onDestroy(){if(registered)unregisterReceiver(sessionReceiver);stopPlayer();super.onDestroy();}
 }
