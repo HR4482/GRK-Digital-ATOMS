@@ -33,8 +33,17 @@ jobs:
           gradle-version: '8.9'
       - run: bash tests/run-host-tests.sh
       - run: gradle --no-daemon assembleDebug lintDebug
+      - name: Verify debug APK signature
+        run: '"$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk'
       - uses: actions/upload-artifact@v4
         with:
           name: GRK-Spatial-Audio-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GRK-lint-report
+          path: app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore

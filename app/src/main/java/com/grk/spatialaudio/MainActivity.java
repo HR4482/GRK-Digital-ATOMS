@@ -69,7 +69,8 @@ public class MainActivity extends Activity {
         button("Exit external mode",v->{external=false; if(player==null)releaseEffects(); refresh();});
         label("External mode requires a player to announce its audio session. It is not a system-wide effect. No licensed Dolby processing is included. Keep GRK running during use.",13);
         IntentFilter f=new IntentFilter(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION); f.addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
-        if(Build.VERSION.SDK_INT>=33)registerReceiver(sessionReceiver,f,Context.RECEIVER_EXPORTED); else registerReceiver(sessionReceiver,f); registered=true;
+        // External player announcements intentionally originate in other apps.
+        androidx.core.content.ContextCompat.registerReceiver(this,sessionReceiver,f,androidx.core.content.ContextCompat.RECEIVER_EXPORTED); registered=true;
         refresh();
     }
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
