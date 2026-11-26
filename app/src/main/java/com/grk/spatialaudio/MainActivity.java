@@ -67,6 +67,9 @@ public class MainActivity extends Activity {
         spatialBar = strength("Surround-style virtualizer (if supported)",v->{spatialValue=v; updateStrength();});
         button("Listen for compatible external players (experimental)",v->{stopPlayer(); external=true; refresh();});
         button("Exit external mode",v->{external=false; if(player==null)releaseEffects(); refresh();});
+        button("Start background compatible-session EQ (experimental)",v->{external=false;stopPlayer();refresh();startForegroundService(new Intent(this,ExternalEffectsService.class));});
+        button("Stop background EQ",v->{stopService(new Intent(this,ExternalEffectsService.class));});
+        label("Background EQ uses a fixed gentle profile on newly announced compatible sessions. Stop it before using local controls.",13);
         label("External mode requires a player to announce its audio session. It is not a system-wide effect. No licensed Dolby processing is included. Keep GRK running during use.",13);
         IntentFilter f=new IntentFilter(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION); f.addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
         // External player announcements intentionally originate in other apps.
